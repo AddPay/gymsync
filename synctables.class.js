@@ -1,4 +1,4 @@
-import { post, get } from 'axios';
+import { post, get, put } from 'axios';
 
 /**
  * Sync data between ATOM and GMS
@@ -32,18 +32,30 @@ class SyncTables {
     }
 
     async PersonsDown() {
-        // Get all users that have been updated on GMS
+        // Get a user that has been updated on GMS
         const response = await get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
         console.log('Api response', response.data);
 
-        const suspiusers = response.data
+        const suspiUser = response.data
 
-        // update ATOM with that information
-        await post(process.env.ATOMAPI_URL + "/Persons/", suspiusers);
+        const personNumber = suspiUser.personNumber
 
-        // tell GMS that we have updated these users on ATOM
-        const ids = ''
-        await post(process.env.GMSAPI_URL + "/atom.php?action=updateusers", ids);  
+        const personJson = await get(process.env.ATOMAPI_URL + "/Person/", personNumber);
+
+        if (personJson) {
+            // the user exists... update it
+            await put(process.env.ATOMAPI_URL + "/Persons/", suspiUser)
+        } else {
+            // the user does not exist... create it
+            await post(process.env.ATOMAPI_URL + "/Persons/", suspiUser)
+        }
+
+        // tell GMS that we have updated this user on ATOM
+        const body = {
+            action: 'updateusers',
+            actiontype: suspiUser.id
+        }
+        await post(process.env.GMSAPI_URL + "/atom.php", body);  
     }
 
     async PersonsUp() {
