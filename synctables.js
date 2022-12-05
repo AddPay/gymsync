@@ -1,76 +1,31 @@
-import { post, get } from 'axios';
+import { connect } from "mssql";
+import SyncTables from "./synctables.class.js";
 
-/**
- * Sync data between ATOM and GMS
- */
-class SyncTables {
+// main
 
-    /**
-     * @property {ConnectionPool} sql - The MSSQL connection pool object
-     */
-    sql
+async () => {
+    try {
+        const sql = await connect(process.env.MSSQL_CONNECTION_STRING)
 
-    /**
-     * 
-     * @param {ConnectionPool} sql 
-     */
-    constructor(sql) {
-        this.sql = sql
-    }
+        const sync = new SyncTables(sql)
 
-    /**
-     * 
-     * @param {object} data 
-     * @param {string} idColumn 
-     */
-    async syncUp(data, idColumn) {
-        const body = {
-            da: data,
-            wc: idColumn,
-        }
-        await post(GMSAPI_URL + "/gymsync.php", body);
-    }
+        setInterval(async() => {
+            /**
+             * Sync ATOM with changes from GMS FIRST
+             * GMS changes take preference over ATOM changes, because GMS changes are more frequent. 
+             * Gym staff don't typically update ATOM's Persons table
+             */
+            await sync.PersonsDown()
 
-    async PersonsDown() {
-        // Get all users that have been updated on GMS
-        const response = await get(GMSAPI_URL + "/atom.php?action=geteditusers");
-        console.log('Api response', response.data);
+            // Sync GMS with changes from ATOM
+            await sync.PersonsUp()
+        }, process.env.PERSONS_SYNC_INTERVAL_MILLISECONDS)
 
-        const suspiusers = response.data
+        // Sync GMS with changes from ATOM
+        setInterval(sync.TransactionsUp, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
+        setInterval(sync.ReadersUp, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
 
-        // update ATOM with that information
-        await post(ATOMAPI_URL + "/Persons/", suspiusers);
-
-        // tell GMS that we have updated these users on ATOM
-        const ids = ''
-        await post(GMSAPI_URL + "/atom.php?action=updateusers", ids);  
-    }
-
-    async PersonsUp() {
-        // Get persons updated on ATOM
-        const persons = await sql.query(`SELECT TOP 200 PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
-
-        // update persons on gms
-        await syncUp(persons, 'PersonID')
-
-        // tell ATOM we have successfully updated GMS
-        await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN()`)
-    }
-
-    async TransactionsUp() {
-        const transactions = await sql.query(`SELECT TOP 300 * FROM Transactions WHERE tExtProcessed <> 1`)
-        // update transactions on gms
-        await syncUp(transactions, 'TransactionID')
-
-        // set tExtProcessed to 1 on atom
-        await sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN()`)
-    }
-
-    async ReadersUp() {
-        const readers = await sql.query(`select * from Readers`)
-        // update readers on gms
-        await syncUp(readers, 'ReaderID')
+    } catch (err) {
+        // ... error checks
     }
 }
-
-export default SyncTables
