@@ -2,6 +2,11 @@ const axios = require('axios').default;
 require('dotenv').config()
 
 class Enroll {
+    /**
+     * Get the user from GMS that is to be enrolled on ATOM
+     * 
+     * @returns {string} The PersonNumber of the person to be enrolled.
+     */
     async getEnrollRequest() {
         const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=getstatus");
     

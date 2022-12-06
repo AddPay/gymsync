@@ -11,13 +11,18 @@ class SyncTables {
     sql
 
     /**
-     * 
      * @param {ConnectionPool} sql 
      */
     constructor(sql) {
         this.sql = sql
     }
 
+    /**
+     * Sync Persons table on ATOM with new data from GMS
+     * Currently syncs only one user at a time from GMS
+     * 
+     * @return void
+     */
     async PersonsDown() {
         // Get a user that has been updated on GMS
         try {
@@ -48,9 +53,15 @@ class SyncTables {
         }
     }
 
+    /**
+     * Sync suspi_users/Persons table on GMS with changes to ATOM Persons table
+     * 
+     * @return void
+     */
     async PersonsUp() {
-        // Get persons updated on ATOM
-        const result = await this.sql.query(`SELECT TOP 200 PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
+        const limit = process.env.PERSONS_TABLE_LIMIT > 0 ? "TOP " + process.env.PERSONS_TABLE_LIMIT : ""
+
+        const result = await this.sql.query(`SELECT ${limit} PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
         const persons = {
             Persons: result.recordset
         }
@@ -64,8 +75,15 @@ class SyncTables {
         await this.sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
     }
 
+    /**
+     * Sync ATOM Transactions table with GMS Transactions table
+     * 
+     * @return void
+     */
     async TransactionsUp() {
-        const result = await this.sql.query(`SELECT TOP 300 * FROM Transactions WHERE tExtProcessed <> 1`)
+        const limit = process.env.TRANSACTIONS_TABLE_LIMIT > 0 ? "TOP " + process.env.TRANSACTIONS_TABLE_LIMIT : ""
+
+        const result = await this.sql.query(`SELECT ${limit} * FROM Transactions WHERE tExtProcessed <> 1`)
         const transactions = {
             Transactions: result.recordset
         }
@@ -84,6 +102,11 @@ class SyncTables {
         }
     }
 
+    /**
+     * Sync ATOM Readers table with GMS Readers table
+     * 
+     * @return void
+     */
     async ReadersUp() {
         const result = await this.sql.query(`select * from Readers`)
         const readers = {
@@ -94,7 +117,10 @@ class SyncTables {
         await this.syncUp(readers, 'ReaderID')
     }
     
+    // ----------- HELPERS ---------------- //
+
     /**
+     * Helper function to post the data to GMS
      * 
      * @param {object} data 
      * @param {string} idColumn 
@@ -108,6 +134,11 @@ class SyncTables {
         await axios.post(process.env.GMSAPI_URL + "/gymsync.php", body);
     }
 
+    /**
+     * Get an edited user from GMS
+     * 
+     * @returns {object|null} A updated person on GMS or null if there are none
+     */
     async getSingleEditedUser() {
         const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
 
@@ -128,6 +159,12 @@ class SyncTables {
         return person
     }
 
+    /**
+     * FInd out whether a specific atom user exists or not
+     * 
+     * @param {string} personNumber 
+     * @returns {boolean} Where atom user exists or not
+     */
     async atomPersonExists(personNumber) {
         const response = await axios.get(process.env.ATOMAPI_URL + "/Person/", personNumber);
 
@@ -141,6 +178,12 @@ class SyncTables {
         return false
     }
 
+    /**
+     * 
+     * @param {array} data 
+     * @param {string} column 
+     * @returns {string} comma-separated quoted list of values from specified column
+     */
     getColumnValuesString(data, column) {
         const values = []
 
