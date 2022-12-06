@@ -18,44 +18,15 @@ class SyncTables {
         this.sql = sql
     }
 
-    /**
-     * 
-     * @param {object} data 
-     * @param {string} idColumn 
-     */
-    async syncUp(data, idColumn) {
-        const body = {
-            da: data,
-            wc: idColumn,
-            sa: 'up',
-        }
-        // await axios.post(process.env.GMSAPI_URL + "/gymsync.php", body);
-    }
-
     async PersonsDown() {
         // Get a user that has been updated on GMS
         try {
-            const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
-            console.log('Api response', response.data);
-
-            const people = response.data
-
-            let person
-
-            if (Array.isArray(people)) {
-                if (people.length > 0) {
-                    if (typeof people[0]['Person_Number'] != "undefined") {
-                        person = people[0]
-                    } else {
-                        throw "Person_Number not found in response data."
-                    } 
-                }
-            }
+            const person = await this.getSingleEditedUser()
 
             if (person) {
-                const personJson = await axios.get(process.env.ATOMAPI_URL + "/Person/", person['Person_Number']);
+                const personExists = await this.atomPersonExists(person['Person_Number']);
 
-                if (personJson) {
+                if (personExists) {
                     // the user exists... update it
                     await axios.put(process.env.ATOMAPI_URL + "/Persons/", person)
                 } else {
@@ -121,6 +92,53 @@ class SyncTables {
 
         // update readers on gms
         await this.syncUp(readers, 'ReaderID')
+    }
+    
+    /**
+     * 
+     * @param {object} data 
+     * @param {string} idColumn 
+     */
+     async syncUp(data, idColumn) {
+        const body = {
+            da: data,
+            wc: idColumn,
+            sa: 'up',
+        }
+        await axios.post(process.env.GMSAPI_URL + "/gymsync.php", body);
+    }
+
+    async getSingleEditedUser() {
+        const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
+
+        const people = response.data
+
+        let person
+
+        if (Array.isArray(people)) {
+            if (people.length > 0) {
+                if (typeof people[0]['Person_Number'] != "undefined") {
+                    person = people[0]
+                } else {
+                    throw "Person_Number not found in response data."
+                } 
+            }
+        }
+
+        return person
+    }
+
+    async atomPersonExists(personNumber) {
+        const response = await axios.get(process.env.ATOMAPI_URL + "/Person/", personNumber);
+
+        try {
+            const personJson = response.data
+            const person = JSON.parse(personJson)
+            return person.Person_Number === personNumber
+        } catch (error) {
+            // not sure
+        }
+        return false
     }
 
     getColumnValuesString(data, column) {

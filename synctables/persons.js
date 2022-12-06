@@ -1,7 +1,7 @@
 const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
-const { SyncTables } = require("./synctables.class.js")
-const config = require('./dbConfig.js')
+const { SyncTables } = require("../synctables.class.js")
+const config = require('../dbConfig.js')
 
 /**
  * Sync the Persons & suspi_users tables (up and down). Down first.
@@ -27,40 +27,6 @@ async function syncPersons(sync) {
     setTimeout(syncPersons(sync), process.env.PERSONS_SYNC_INTERVAL_MILLISECONDS)
 }
 
-/**
- * Sync Transactions table. Up only.
- * 
- * @param {Promise<ConnectionPool> & void} sync MSSQL connection
- */
-async function syncTransactions(sync) {
-
-    try {
-        // Sync GMS with changes from ATOM
-        await sync.TransactionsUp()
-    } catch (error) {
-        console.error(error)
-    }
-    
-    setTimeout(syncTransactions(sync), process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
-}
-
-/**
- * Sync Readers table. Up only.
- * 
- * @param {Promise<ConnectionPool> & void} sync MSSQL connection
- */
-async function syncReaders(sync) {
-
-    try {
-        // Sync GMS with changes from ATOM
-        await sync.ReadersUp()
-    } catch (error) {
-        console.error(error)
-    }
-
-    setTimeout(syncReaders(sync), process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
-}
-
 // main
 
 async function main() {
@@ -70,10 +36,7 @@ async function main() {
 
         const sync = new SyncTables(sql)
 
-        // Perform Syncs
         syncPersons(sync)
-        syncTransactions(sync)
-        syncReaders(sync)
 
     } catch (error) {
         console.error(error)
