@@ -1,5 +1,7 @@
-import { connect } from "mssql";
-import SyncTables from "./synctables.class.js";
+const cnx = require('mssql/msnodesqlv8')
+require('dotenv').config()
+const { SyncTables } = require("./synctables.class.js")
+const config = require('./dbConfig.js')
 
 /**
  * Sync the Persons & suspi_users tables (up and down). Down first.
@@ -61,10 +63,10 @@ async function syncReaders(sync) {
 
 // main
 
-async () => {
+async function main() {
     try {
         // Connect to ATOM MSSQL server
-        const sql = await connect(process.env.MSSQL_CONNECTION_STRING)
+        const sql = await cnx.connect(config)
 
         const sync = new SyncTables(sql)
 
@@ -77,3 +79,5 @@ async () => {
         console.error(error)
     }
 }
+
+main()

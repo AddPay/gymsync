@@ -1,4 +1,4 @@
-import { post, get, put } from 'axios';
+const axios = require('axios').default;
 
 /**
  * Sync data between ATOM and GMS
@@ -27,62 +27,111 @@ class SyncTables {
         const body = {
             da: data,
             wc: idColumn,
+            sa: 'up',
         }
-        await post(process.env.GMSAPI_URL + "/gymsync.php", body);
+        // await axios.post(process.env.GMSAPI_URL + "/gymsync.php", body);
     }
 
     async PersonsDown() {
         // Get a user that has been updated on GMS
-        const response = await get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
-        console.log('Api response', response.data);
+        try {
+            const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
+            console.log('Api response', response.data);
 
-        const suspiUser = response.data
+            const people = response.data
 
-        const personNumber = suspiUser.personNumber
+            let person
 
-        const personJson = await get(process.env.ATOMAPI_URL + "/Person/", personNumber);
+            if (Array.isArray(people)) {
+                if (people.length > 0) {
+                    if (typeof people[0]['Person_Number'] != "undefined") {
+                        person = people[0]
+                    } else {
+                        throw "Person_Number not found in response data."
+                    } 
+                }
+            }
 
-        if (personJson) {
-            // the user exists... update it
-            await put(process.env.ATOMAPI_URL + "/Persons/", suspiUser)
-        } else {
-            // the user does not exist... create it
-            await post(process.env.ATOMAPI_URL + "/Persons/", suspiUser)
+            if (person) {
+                const personJson = await axios.get(process.env.ATOMAPI_URL + "/Person/", person['Person_Number']);
+
+                if (personJson) {
+                    // the user exists... update it
+                    await axios.put(process.env.ATOMAPI_URL + "/Persons/", person)
+                } else {
+                    // the user does not exist... create it
+                    await axios.post(process.env.ATOMAPI_URL + "/Persons/", person)
+                }
+
+                // tell GMS that we have updated this user on ATOM
+                const body = {
+                    action: 'updateusers',
+                    actiontype: person['id']
+                }
+                await axios.post(process.env.GMSAPI_URL + "/atom.php", body);  
+            } else {
+                console.log("No users have been added/edited on GMS")
+            }
+        } catch (error) {
+            console.error(error)
         }
-
-        // tell GMS that we have updated this user on ATOM
-        const body = {
-            action: 'updateusers',
-            actiontype: suspiUser.id
-        }
-        await post(process.env.GMSAPI_URL + "/atom.php", body);  
     }
 
     async PersonsUp() {
         // Get persons updated on ATOM
-        const persons = await sql.query(`SELECT TOP 200 PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
+        const result = await this.sql.query(`SELECT TOP 200 PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
+        const persons = {
+            Persons: result.recordset
+        }
 
         // update persons on gms
-        await syncUp(persons, 'PersonID')
+        await this.syncUp(persons, 'PersonID')
+
+        const personIDs = this.getColumnValuesString(result.recordset, 'PersonID')
 
         // tell ATOM we have successfully updated GMS
-        await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN()`)
+        await this.sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
     }
 
     async TransactionsUp() {
-        const transactions = await sql.query(`SELECT TOP 300 * FROM Transactions WHERE tExtProcessed <> 1`)
-        // update transactions on gms
-        await syncUp(transactions, 'TransactionID')
+        const result = await this.sql.query(`SELECT TOP 300 * FROM Transactions WHERE tExtProcessed <> 1`)
+        const transactions = {
+            Transactions: result.recordset
+        }
 
-        // set tExtProcessed to 1 on atom
-        await sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN()`)
+        // update transactions on gms
+        await this.syncUp(transactions, 'TransactionID')
+
+        const TransactionIDs = this.getColumnValuesString(result.recordset, 'TransactionID')
+
+        try {
+            // set tExtProcessed to 1 on atom - not working
+            const result1 = await this.sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN(${TransactionIDs})`)
+            console.log(result1)
+        } catch (error) {
+            console.error(error)
+        }
     }
 
     async ReadersUp() {
-        const readers = await sql.query(`select * from Readers`)
+        const result = await this.sql.query(`select * from Readers`)
+        const readers = {
+            Readers: result.recordset
+        }
+
         // update readers on gms
-        await syncUp(readers, 'ReaderID')
+        await this.syncUp(readers, 'ReaderID')
+    }
+
+    getColumnValuesString(data, column) {
+        const values = []
+
+        for (let i = 0; i < data.length; i++) {
+            values.push(data[i][column])
+        }
+
+        return "'" + values.join("','") + "'"
     }
 }
 
-export default SyncTables
+module.exports = { SyncTables }
