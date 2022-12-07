@@ -1,4 +1,4 @@
-const axios = require('axios').default;
+const axios = require('../services/http')
 const { Enroll } = require('./enroll.class')
 
 jest.mock('axios');

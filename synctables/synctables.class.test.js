@@ -1,5 +1,5 @@
 const { SyncTables } = require("./synctables.class.js")
-const axios = require('axios').default;
+const axios = require('../services/http')
 const config = require('../dbConfig.js')
 const cnx = require('mssql/msnodesqlv8')
 
