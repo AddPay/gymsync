@@ -1,5 +1,6 @@
 const { SyncTables } = require("./synctables.class.js")
 const axios = require('../services/http')
+require('dotenv').config()
 const config = require('../dbConfig.js')
 const cnx = require('mssql/msnodesqlv8')
 
@@ -8,7 +9,7 @@ jest.mock('axios');
 let sync;
 
 beforeAll(async () => {
-    const sql = await cnx.connect(config)
+    const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
     sync = new SyncTables(sql)
     return sync
 });
@@ -21,7 +22,7 @@ test('should get an edited user', () => {
     // or you could use the following depending on your use case:
     // axios.get.mockImplementation(() => Promise.resolve(resp))
   
-    return sync.getSingleEditedUser().then(data => expect(data).toEqual(user));
+    return SyncTables.getSingleEditedUser().then(data => expect(data).toEqual(user));
 });
 
 test('should get column values', () => {
@@ -33,7 +34,7 @@ test('should get column values', () => {
         PersonID: 3
     }]
 
-    expect(sync.getColumnValuesString(data, 'PersonID')).toEqual("'1','2','3'")
+    expect(SyncTables.getColumnValuesString(data, 'PersonID')).toEqual("'1','2','3'")
 })
 
 test('atom user should exist', () => {
@@ -45,5 +46,5 @@ test('atom user should exist', () => {
     // or you could use the following depending on your use case:
     // axios.get.mockImplementation(() => Promise.resolve(resp))
   
-    return sync.atomPersonExists('321').then(data => expect(data).toEqual(true));
+    return SyncTables.atomPersonExists('321').then(data => expect(data).toEqual(true));
 });

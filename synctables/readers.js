@@ -13,6 +13,7 @@ async function syncReaders(sync) {
 
     try {
         // Sync GMS with changes from ATOM
+        logger.info("Sync Readers Up")
         await sync.ReadersUp()
     } catch (error) {
         logger.error(error)

@@ -17,9 +17,11 @@ async function syncPersons(sync) {
          * GMS changes take preference over ATOM changes, because GMS changes are more frequent. 
          * Gym staff don't typically update ATOM's Persons table
          */
+        logger.info("Syncing Persons Down")
         await sync.PersonsDown()
 
         // Sync GMS with changes from ATOM
+        logger.info("Syncing Persons Up")
         await sync.PersonsUp()
     } catch (error) {
         logger.error(error)

@@ -1,1 +1,4 @@
-npm install pm2@latest -g
+requirements:
+
+- node
+- npm install pm2@latest -g

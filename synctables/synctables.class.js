@@ -27,17 +27,27 @@ class SyncTables {
     async PersonsDown() {
         // Get a user that has been updated on GMS
         try {
-            const person = await this.getSingleEditedUser()
+            const person = await SyncTables.getSingleEditedUser()
 
             if (person) {
-                const personExists = await this.atomPersonExists(person['Person_Number']);
+                const personExists = await SyncTables.atomPersonExists(person['Person_Number']);
 
-                if (personExists) {
-                    // the user exists... update it
-                    await axios.put(process.env.ATOMAPI_URL + "/Persons/", person)
-                } else {
-                    // the user does not exist... create it
-                    await axios.post(process.env.ATOMAPI_URL + "/Persons/", person)
+                try {
+                    if (personExists) {
+                        // the user exists... update it
+                        const response = await axios.put(process.env.ATOMAPI_URL + "/Persons/", person)
+                        if (response !== '') {
+                            logger.error(response)
+                        }
+                    } else {
+                        // the user does not exist... create it
+                        const response = await axios.post(process.env.ATOMAPI_URL + "/Persons/", person)
+                        if (response !== '') {
+                            logger.error(response)
+                        }
+                    }
+                } catch (error) {
+                    logger.error(error)
                 }
 
                 // tell GMS that we have updated this user on ATOM
@@ -70,7 +80,7 @@ class SyncTables {
         // update persons on gms
         await this.syncUp(persons, 'PersonID')
 
-        const personIDs = this.getColumnValuesString(result.recordset, 'PersonID')
+        const personIDs = SyncTables.getColumnValuesString(result.recordset, 'PersonID')
 
         // tell ATOM we have successfully updated GMS
         await this.sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
@@ -92,7 +102,7 @@ class SyncTables {
         // update transactions on gms
         await this.syncUp(transactions, 'TransactionID')
 
-        const TransactionIDs = this.getColumnValuesString(result.recordset, 'TransactionID')
+        const TransactionIDs = SyncTables.getColumnValuesString(result.recordset, 'TransactionID')
 
         try {
             // set tExtProcessed to 1 on atom - not working
@@ -140,7 +150,7 @@ class SyncTables {
      * 
      * @returns {object|null} A updated person on GMS or null if there are none
      */
-    async getSingleEditedUser() {
+     static async getSingleEditedUser() {
         const response = await axios.get(process.env.GMSAPI_URL + "/atom.php?action=geteditusers");
 
         const people = response.data
@@ -166,14 +176,13 @@ class SyncTables {
      * @param {string} personNumber 
      * @returns {boolean} Where atom user exists or not
      */
-    async atomPersonExists(personNumber) {
-        const response = await axios.get(process.env.ATOMAPI_URL + "/Person/", personNumber);
-
+    static async atomPersonExists(personNumber) {
         try {
-            const personJson = response.data
-            const person = JSON.parse(personJson)
+            const response = await axios.get(process.env.ATOMAPI_URL + "/Persons/" + personNumber);
+            const person = response.data
             return person.Person_Number === personNumber
         } catch (error) {
+            logger.error(error)
             // not sure
         }
         return false
@@ -185,7 +194,7 @@ class SyncTables {
      * @param {string} column 
      * @returns {string} comma-separated quoted list of values from specified column
      */
-    getColumnValuesString(data, column) {
+    static getColumnValuesString(data, column) {
         const values = []
 
         for (let i = 0; i < data.length; i++) {

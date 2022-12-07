@@ -13,6 +13,7 @@ async function syncTransactions(sync) {
 
     try {
         // Sync GMS with changes from ATOM
+        logger.info("Syncing Transactions Up")
         await sync.TransactionsUp()
     } catch (error) {
         logger.error(error)
