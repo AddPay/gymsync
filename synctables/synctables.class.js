@@ -1,4 +1,5 @@
 const axios = require('axios').default;
+const logger = require('../services/logger')
 
 /**
  * Sync data between ATOM and GMS
@@ -46,10 +47,10 @@ class SyncTables {
                 }
                 await axios.post(process.env.GMSAPI_URL + "/atom.php", body);  
             } else {
-                console.log("No users have been added/edited on GMS")
+                logger.info("No users have been added/edited on GMS")
             }
         } catch (error) {
-            console.error(error)
+            logger.error(error)
         }
     }
 
@@ -96,9 +97,9 @@ class SyncTables {
         try {
             // set tExtProcessed to 1 on atom - not working
             const result1 = await this.sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN(${TransactionIDs})`)
-            console.log(result1)
+            logger.info(result1)
         } catch (error) {
-            console.error(error)
+            logger.error(error)
         }
     }
 

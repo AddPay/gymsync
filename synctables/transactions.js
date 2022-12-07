@@ -1,7 +1,8 @@
 const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
 const { SyncTables } = require("./synctables.class.js")
-const config = require('./dbConfig.js')
+const config = require('../dbConfig.js')
+const logger = require('../services/logger')
 
 /**
  * Sync Transactions table. Up only.
@@ -14,7 +15,7 @@ async function syncTransactions(sync) {
         // Sync GMS with changes from ATOM
         await sync.TransactionsUp()
     } catch (error) {
-        console.error(error)
+        logger.error(error)
     }
     
     setTimeout(syncTransactions(sync), process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
@@ -31,7 +32,7 @@ async function main() {
         syncTransactions(sync)
 
     } catch (error) {
-        console.error(error)
+        logger.error(error)
     }
 }
 

@@ -1,5 +1,6 @@
 const axios = require('axios').default;
 const { Enroll } = require("./enroll.class.js")
+const logger = require('../services/logger')
 require('dotenv').config()
 
 /**
@@ -16,7 +17,7 @@ async function enroll() {
             // trigger the ATOM enrollment helper
             const response2 = await axios.post(process.env.ATOMAPI_URL + "/Enroll/" + personNumber + '/?IPAddress=' + process.env.SERVER_PC_IP);
         } catch (error) {
-            console.error(error)
+            logger.error(error)
         }
         
         // Get the person as enrolled (or at least attempted)

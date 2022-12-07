@@ -1,7 +1,8 @@
 const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
-const { SyncTables } = require("../synctables.class.js")
+const { SyncTables } = require("./synctables.class.js")
 const config = require('../dbConfig.js')
+const logger = require('../services/logger')
 
 /**
  * Sync the Persons & suspi_users tables (up and down). Down first.
@@ -21,7 +22,7 @@ async function syncPersons(sync) {
         // Sync GMS with changes from ATOM
         await sync.PersonsUp()
     } catch (error) {
-        console.error(error)
+        logger.error(error)
     }
 
     setTimeout(syncPersons(sync), process.env.PERSONS_SYNC_INTERVAL_MILLISECONDS)
@@ -39,7 +40,7 @@ async function main() {
         syncPersons(sync)
 
     } catch (error) {
-        console.error(error)
+        logger.error(error)
     }
 }
 

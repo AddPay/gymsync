@@ -1,6 +1,6 @@
 const { SyncTables } = require("./synctables.class.js")
 const axios = require('axios').default;
-const config = require('./dbConfig.js')
+const config = require('../dbConfig.js')
 const cnx = require('mssql/msnodesqlv8')
 
 jest.mock('axios');
