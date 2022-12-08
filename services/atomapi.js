@@ -129,7 +129,7 @@ class AtomAPI {
     }
 
     static async setTransactionsSynced(transactions) {
-        const TransactionIDs = this.getColumnValuesString(transactions, 'TransactionID')
+        const TransactionIDs = AtomAPI.getColumnValuesString(transactions, 'TransactionID')
 
         try {
             const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
@@ -154,7 +154,7 @@ class AtomAPI {
     }
 
     static async setPersonsSynced(persons) {
-        const personIDs = this.getColumnValuesString(persons, 'PersonID')
+        const personIDs = AtomAPI.getColumnValuesString(persons, 'PersonID')
         // tell ATOM we have successfully updated GMS
         const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
         await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
@@ -166,11 +166,13 @@ class AtomAPI {
      * @param {string} column 
      * @returns {string} comma-separated quoted list of values from specified column
      */
-    getColumnValuesString(data, column) {
+    static getColumnValuesString(data, column) {
         const values = []
 
-        for (let i = 0; i < data.length; i++) {
-            values.push(data[i][column])
+        if (Array.isArray(data)) {
+            for (let i = 0; i < data.length; i++) {
+                values.push(data[i][column])
+            }
         }
 
         return "'" + values.join("','") + "'"

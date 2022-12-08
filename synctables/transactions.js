@@ -10,7 +10,7 @@ const logger = new Logger("Transactions")
  * @return void
  */
 async function TransactionsUp() {
-    const transactions = AtomAPI.getUnsyncedTransactions()
+    const transactions = await AtomAPI.getUnsyncedTransactions()
 
     const data = {
         Transactions: transactions

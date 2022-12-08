@@ -10,7 +10,7 @@ const logger = new Logger("Readers")
  * @return void
  */
 async function readersUp() {
-    const readers = AtomAPI.getReaders()
+    const readers = await AtomAPI.getReaders()
     const data = {
         Readers: readers
     }
