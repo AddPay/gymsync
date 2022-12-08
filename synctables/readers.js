@@ -1,41 +1,38 @@
-const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
-const { SyncTables } = require("./synctables.class.js")
-const config = require('../dbConfig.js')
-const logger = require('../services/logger')
+const { GmsAPI } = require('../services/gmsapi')
+const { Logger } = require('../services/logger')
+const { AtomAPI } = require('../services/atomapi')
+const logger = new Logger("Readers")
+
+/**
+ * Sync ATOM Readers table with GMS Readers table
+ * 
+ * @return void
+ */
+async function readersUp() {
+    const readers = AtomAPI.getReaders()
+    const data = {
+        Readers: readers
+    }
+
+    // update readers on gms
+    await GmsAPI.syncUp(data, 'ReaderID')
+}
 
 /**
  * Sync Readers table. Up only.
- * 
- * @param {Promise<ConnectionPool> & void} sync MSSQL connection
  */
-async function syncReaders(sync) {
+async function syncReaders() {
 
     try {
         // Sync GMS with changes from ATOM
         logger.info("Sync Readers Up")
-        await sync.ReadersUp()
+        await readersUp()
     } catch (error) {
         logger.error(error)
     }
 
-    setTimeout(syncReaders(sync), process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
+    setTimeout(async () => {await syncReaders()}, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
 }
 
-// main
-
-async function main() {
-    try {
-        // Connect to ATOM MSSQL server
-        const sql = await cnx.connect(config)
-
-        const sync = new SyncTables(sql)
-
-        syncReaders(sync)
-
-    } catch (error) {
-        logger.error(error)
-    }
-}
-
-main()
+syncReaders()

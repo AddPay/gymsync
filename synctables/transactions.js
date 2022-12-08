@@ -1,40 +1,41 @@
-const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
-const { SyncTables } = require("./synctables.class.js")
-const config = require('../dbConfig.js')
-const logger = require('../services/logger')
+const { GmsAPI } = require('../services/gmsapi')
+const { Logger } = require('../services/logger')
+const { AtomAPI } = require('../services/atomapi.js')
+const logger = new Logger("Transactions")
+
+/**
+ * Sync ATOM Transactions table with GMS Transactions table
+ * 
+ * @return void
+ */
+async function TransactionsUp() {
+    const transactions = AtomAPI.getUnsyncedTransactions()
+
+    const data = {
+        Transactions: transactions
+    }
+
+    // update transactions on gms
+    await GmsAPI.syncUp(data, 'TransactionID')
+
+    await AtomAPI.setTransactionsSynced(transactions)
+}
 
 /**
  * Sync Transactions table. Up only.
- * 
- * @param {Promise<ConnectionPool> & void} sync MSSQL connection
  */
-async function syncTransactions(sync) {
+async function syncTransactions() {
 
     try {
         // Sync GMS with changes from ATOM
         logger.info("Syncing Transactions Up")
-        await sync.TransactionsUp()
+        await TransactionsUp()
     } catch (error) {
         logger.error(error)
     }
     
-    setTimeout(syncTransactions(sync), process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
+    setTimeout(async () => {await syncTransactions(sync)}, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
 }
 
-// main
-
-async function main() {
-    try {
-        // Connect to ATOM MSSQL server
-        const sql = await cnx.connect(config)
-        const sync = new SyncTables(sql)
-
-        syncTransactions(sync)
-
-    } catch (error) {
-        logger.error(error)
-    }
-}
-
-main()
+syncTransactions()

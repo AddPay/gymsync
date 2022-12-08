@@ -1,8 +1,8 @@
-const axios = require('../services/http')
-const { Enroll } = require("./enroll.class.js")
-const { SyncTables } = require("../synctables/synctables.class.js")
-const logger = require('../services/logger')
+const { AtomAPI } = require('../services/atomapi')
+const { GmsAPI } = require('../services/gmsapi')
 require('dotenv').config()
+const { Logger } = require('../services/logger')
+const logger = new Logger("Enroll")
 
 let retry = 0
 
@@ -11,40 +11,28 @@ let retry = 0
  */
 async function enroll() {
 
-    const enrollObj = new Enroll()
     // Get the PersonNumber of the user to be enrolled from GMS
-    const personNumber = await enrollObj.getEnrollRequest()
+    const personNumber = await GmsAPI.getEnrollmentRequest()
 
     if (personNumber) {
 
-        const exists = await SyncTables.atomPersonExists(personNumber)
+        const exists = await AtomAPI.personExists(personNumber)
 
         if (exists === true) {
-            try {
-                // trigger the ATOM enrollment helper
-                logger.info("Attempt to enroll " + personNumber)
-                const response1 = await axios.post(process.env.ATOMAPI_URL + "/Enroll/" + personNumber + '/?IPAddress=' + process.env.SERVER_PC_IP);
-                if (response1.data == "Enroll Request sent") {
-                    logger.info("Clearing enrollment status")
-                    const response2 = await axios.post(process.env.GMSAPI_URL + "/atom.php?action=clearstatus");
-                    retry = 0
-                } else {
-                    throw response1
-                }
-            } catch (error) {
-                logger.error(error)
-            }
+            // trigger the ATOM enrollment helper
+            logger.info("Attempt to enroll " + personNumber)
+            await AtomAPI.enrollPerson(personNumber)
+
+            logger.info("Clearing enrollment status")
+            await GmsAPI.clearEnrollmentRequest()
+            retry = 0
         } else {
             // give the syncing some time before clearing the status on GMS
             // in case the persons table has not been synced yet
             if (retry > process.env.MAX_RETRIES) {
-                try {
-                    logger.info("Done retrying... clearing the enrollment status.")
-                    const response3 = await axios.post(process.env.GMSAPI_URL + "/atom.php?action=clearstatus");
-                    retry = 0
-                } catch (error) {
-                    logger.error(error)
-                }
+                logger.info("Done retrying... clearing the enrollment status.")
+                await GmsAPI.clearEnrollmentRequest()
+                retry = 0
             } else {
                 logger.warn("Waiting for ATOM person sync. Retry #" + retry)
                 ++retry
@@ -52,7 +40,7 @@ async function enroll() {
         }
     }
 
-    setTimeout(enroll, process.env.ENROLL_INTERVAL_MILLISECONDS)
+    setTimeout(async () => {await enroll()}, process.env.ENROLL_INTERVAL_MILLISECONDS)
 
 }
 

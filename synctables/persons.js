@@ -1,15 +1,52 @@
-const cnx = require('mssql/msnodesqlv8')
 require('dotenv').config()
-const { SyncTables } = require("./synctables.class.js")
-const config = require('../dbConfig.js')
-const logger = require('../services/logger')
+const { AtomAPI } = require('../services/atomapi')
+const { GmsAPI } = require('../services/gmsapi')
+const { Logger } = require('../services/logger')
+const logger = new Logger("Persons")
+
+/**
+ * Sync Persons table on ATOM with new data from GMS
+ * Currently syncs only one user at a time from GMS
+ * 
+ * @return void
+ */
+async function PersonsDown() {
+    // Get a user that has been updated on GMS
+    const person = await GmsAPI.getSingleEditedUser()
+
+    if (person) {
+        const result = await AtomAPI.autoInsertUpdatePerson(person);
+
+        if (result) {
+            await GmsAPI.personSyncedOnAtom(person['id'])
+        }
+    } else {
+        logger.info("No users have been added/edited on GMS")
+    }
+}
+
+/**
+ * Sync suspi_users/Persons table on GMS with changes to ATOM Persons table
+ * 
+ * @return void
+ */
+async function PersonsUp() {
+    const persons = await AtomAPI.getUnsyncedPersons()
+
+    const data = {
+        Persons: persons
+    }
+
+    // update persons on gms
+    await GmsAPI.syncUp(data, 'PersonID')
+
+    await AtomAPI.setPersonsSynced(persons)
+}
 
 /**
  * Sync the Persons & suspi_users tables (up and down). Down first.
- * 
- * @param {Promise<ConnectionPool> & void} sync MSSQL connection
  */
-async function syncPersons(sync) {
+async function syncPersons() {
 
     try {
         /**
@@ -18,32 +55,16 @@ async function syncPersons(sync) {
          * Gym staff don't typically update ATOM's Persons table
          */
         logger.info("Syncing Persons Down")
-        await sync.PersonsDown()
+        await PersonsDown()
 
         // Sync GMS with changes from ATOM
         logger.info("Syncing Persons Up")
-        await sync.PersonsUp()
+        await PersonsUp()
     } catch (error) {
         logger.error(error)
     }
 
-    setTimeout(syncPersons(sync), process.env.PERSONS_SYNC_INTERVAL_MILLISECONDS)
+    setTimeout(async () => {await syncPersons()}, process.env.PERSONS_SYNC_INTERVAL_MILLISECONDS)
 }
 
-// main
-
-async function main() {
-    try {
-        // Connect to ATOM MSSQL server
-        const sql = await cnx.connect(config)
-
-        const sync = new SyncTables(sql)
-
-        syncPersons(sync)
-
-    } catch (error) {
-        logger.error(error)
-    }
-}
-
-main()
+syncPersons()
