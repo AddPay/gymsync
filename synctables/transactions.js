@@ -5,7 +5,7 @@ const { AtomAPI } = require('../services/atomapi.js')
 const logger = new Logger("Transactions")
 
 /**
- * Sync ATOM Transactions table with GMS Transactions table
+ * Sync GMS Transactions table with data from the ATOM Transactions table
  * 
  * @return void
  */

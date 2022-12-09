@@ -1,6 +1,7 @@
 const axios = require('../services/http')
 const config = require('../dbConfig.js')
 const cnx = require('mssql/msnodesqlv8')
+const ip = require('ip');
 require('dotenv').config()
 const { Logger } = require('../services/logger')
 const logger = new Logger("ATOMAPI")
@@ -15,7 +16,7 @@ class AtomAPI {
      */
     static async enrollPerson(personNumber) {
         try {
-            const response1 = await axios.post(process.env.ATOMAPI_URL + "/Enroll/" + personNumber + '/?IPAddress=' + process.env.SERVER_PC_IP);
+            const response1 = await axios.post(process.env.ATOMAPI_URL + "/Enroll/" + personNumber + '/?IPAddress=' + ip.address());
             if (response1.data == "Enroll Request sent") {
                 return true
             } else {
@@ -111,7 +112,7 @@ class AtomAPI {
     }
 
     /**
-     * FInd out whether a specific atom user exists or not
+     * Find out whether a specific atom user exists or not
      * 
      * @param {string} personNumber 
      * @returns {boolean} Where atom user exists or not
@@ -121,13 +122,31 @@ class AtomAPI {
         return person ? person.Person_Number === personNumber : false
     }
 
+    /**
+     * Get transactions from ATOM DB that have not been synced with GMS
+     * 
+     * @returns {array|boolean} Array of Transaction objects, or false on not found or failure
+     */
     static async getUnsyncedTransactions() {
-        const limit = process.env.TRANSACTIONS_TABLE_LIMIT > 0 ? "TOP " + process.env.TRANSACTIONS_TABLE_LIMIT : ""
-        const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-        const result = await sql.query(`SELECT ${limit} * FROM Transactions WHERE tExtProcessed <> 1`)
-        return result.recordset
+        try {
+            const limit = process.env.TRANSACTIONS_TABLE_LIMIT > 0 ? "TOP " + process.env.TRANSACTIONS_TABLE_LIMIT : ""
+            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+            const result = await sql.query(`SELECT ${limit} * FROM Transactions WHERE tExtProcessed <> 1`)
+            return result.recordset
+        } catch (error) {
+            logger.error(error)
+        }
+        return false
     }
 
+    /**
+     * Set supplied transactions as having been updated in GMS
+     * 
+     * @param {object} transaction  Set these transactions in ATOM DB as having been
+     *                              updated in GMS
+     * 
+     * @returns {boolean}
+     */
     static async setTransactionsSynced(transactions) {
         const TransactionIDs = AtomAPI.getColumnValuesString(transactions, 'TransactionID')
 
@@ -135,35 +154,71 @@ class AtomAPI {
             const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
             const result1 = await sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN(${TransactionIDs})`)
             logger.info(result1)
+            return true
         } catch (error) {
             logger.error(error)
         }
+        return false
     }
 
+    /**
+     * Get all ATOM Readers
+     * 
+     * @returns {array|boolean} 
+     */
     static async getReaders() {
-        const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-        const result = await sql.query(`select * from Readers`)
-        return result.recordset
+        try {
+            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+            const result = await sql.query(`select * from Readers`)
+            return result.recordset
+        } catch (error) {
+            logger.error(error)
+        }
+        return false
     }
 
+    /**
+     * Get Persons on ATOM not synced with GMS
+     * 
+     * @returns {array|boolean}
+     */
     static async getUnsyncedPersons() {
-        const limit = process.env.PERSONS_TABLE_LIMIT > 0 ? "TOP " + process.env.PERSONS_TABLE_LIMIT : ""
-        const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-        const result = await sql.query(`SELECT ${limit} PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
-        return result.recordset
+        try {
+            const limit = process.env.PERSONS_TABLE_LIMIT > 0 ? "TOP " + process.env.PERSONS_TABLE_LIMIT : ""
+            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+            const result = await sql.query(`SELECT ${limit} PersonID,pName,pSurname,pPersonNumber,pIDNo,DepartmentID,PersonTypeID,PersonStateID,FORMAT(pStartDate, 'yyyy-MM-dd') as pStartDate,FORMAT(pTerminationDate, 'yyyy-MM-dd') as pTerminationDate,pDesignation,pFingerTemplate1Quality,pFingerTemplate2Quality,pPresence,pPresenceSiteID,pPresenceUpdated,PayGroupID,ShiftCycleID,ShiftCycleDay,FORMAT(CycledShiftUpdate, 'yyyy-MM-dd') as CycledShiftUpdate,pTAClocker,pFONLOFF,p3rdPartyUID,pTerminalDBNumber from Persons where p3rdPartyUID <> 1`)
+            return result.recordset
+        } catch (error) {
+            logger.error(error)
+        }
+        return false
     }
 
+    /**
+     * Set these Persons as having been updated on GMS
+     * 
+     * @param {array} persons Array of Person objects
+     * 
+     * @returns {boolean}
+     */
     static async setPersonsSynced(persons) {
-        const personIDs = AtomAPI.getColumnValuesString(persons, 'PersonID')
-        // tell ATOM we have successfully updated GMS
-        const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-        await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
+        try {
+            const personIDs = AtomAPI.getColumnValuesString(persons, 'PersonID')
+            // tell ATOM we have successfully updated GMS
+            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+            await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
+            return true
+        } catch (error) {
+            logger.error(error)
+        }
+        return false
     }
 
     /**
      * 
      * @param {array} data 
      * @param {string} column 
+     * 
      * @returns {string} comma-separated quoted list of values from specified column
      */
     static getColumnValuesString(data, column) {

@@ -20,13 +20,11 @@ async function PersonsDown() {
         if (result) {
             await GmsAPI.personSyncedOnAtom(person['id'])
         }
-    } else {
-        logger.info("No users have been added/edited on GMS")
     }
 }
 
 /**
- * Sync suspi_users/Persons table on GMS with changes to ATOM Persons table
+ * Sync GMS Persons table with changes to ATOM Persons table
  * 
  * @return void
  */

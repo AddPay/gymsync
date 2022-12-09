@@ -1,14 +1,5 @@
-const axios = require('../services/http')
+const axios = require('./http')
 const { AtomAPI } = require('./atomapi')
-
-jest.mock('axios');
-
-let atomapi;
-
-beforeAll(() => {
-    atomapi = new AtomAPI()
-});
-
 
 test('should get column values', () => {
     const data = [{
@@ -19,28 +10,50 @@ test('should get column values', () => {
         PersonID: 3
     }]
 
-    expect(atomapi.getColumnValuesString(data, 'PersonID')).toEqual("'1','2','3'")
+    expect(AtomAPI.getColumnValuesString(data, 'PersonID')).toEqual("'1','2','3'")
 })
 
-// test('atom user should exist', () => {
-//     const user = {PersonID: '123', Person_Number: '321'};
-//     const userString = JSON.stringify(user)
-//     const resp = {data: userString};
-//     axios.get.mockResolvedValue(resp);
-  
-//     // or you could use the following depending on your use case:
-//     // axios.get.mockImplementation(() => Promise.resolve(resp))
-  
-//     return AtomAPI.personExists('321').then(data => expect(data).toEqual(true));
-// });
+test("Enroll a blank person number", () => {
+    return AtomAPI.enrollPerson().then(data => expect(data).toEqual(false))
+})
 
-test("Should find the Atom Person", () => {
-    const user = {PersonID: '123', Person_Number: '321'};
-    const resp = {data: user};
-    axios.get.mockResolvedValue(resp);
-  
-    // or you could use the following depending on your use case:
-    // axios.get.mockImplementation(() => Promise.resolve(resp))
-  
-    return AtomAPI.personExists('321').then(data => expect(data).toEqual(true));
+test("Enroll a non-existent person number", () => {
+    return AtomAPI.enrollPerson('TEST1234').then(data => expect(data).toEqual(false))
+})
+
+test("Enroll an existent person number should be true", () => {
+    return AtomAPI.enrollPerson('0001').then(data => expect(data).toEqual(true))
+})
+
+test("Find a blank person number should be false", () => {
+    return AtomAPI.getPerson().then(data => expect(data).toEqual(false))
+})
+
+test("Find a non-existent person should be false", () => {
+    return AtomAPI.getPerson('TEST1234').then(data => expect(data).toEqual(false))
+})
+
+test("Update a blank person should be false", () => {
+    return AtomAPI.updatePerson().then(data => expect(data).toEqual(false))
+})
+
+test("Update a non-existent person should be false", () => {
+    const person = {PersonID: '123', Person_Number: '321'};
+    return AtomAPI.updatePerson(person).then(data => expect(data).toEqual(false))
+})
+
+test("Insert a blank person should be false", () => {
+    return AtomAPI.insertPerson().then(data => expect(data).toEqual(false))
+})
+
+test("Get unsynced transactions should return an array", () => {
+    return AtomAPI.getUnsyncedTransactions().then(data => expect(data.length).toBeGreaterThanOrEqual(0))
+})
+
+test("Get readers should return an array", () => {
+    return AtomAPI.getReaders().then(data => expect(data.length).toBeGreaterThanOrEqual(0))
+})
+
+test("Get persons should return an array", () => {
+    return AtomAPI.getUnsyncedPersons().then(data => expect(data.length).toBeGreaterThanOrEqual(0))
 })

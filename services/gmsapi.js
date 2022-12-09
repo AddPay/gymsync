@@ -57,8 +57,10 @@ class GmsAPI {
      */
     static async personSyncedOnAtom(gmsUserId) {
         try {
+            // this returns an empty string regardless whether the user exists or not
+            // I will need to improve this on GMS API
             await axios.get(process.env.GMSAPI_URL + "/atom.php?action=updateusers&actiontype=" + gmsUserId);
-            return true // improve error handling here
+            return true
         } catch (error) {
             logger.error(error)
         }
@@ -80,8 +82,11 @@ class GmsAPI {
                 sa: 'up',
             }
             const params = new URLSearchParams(body).toString();
+
+            // the script responds with ok - even if the column is incorrect
+            // need to fix that on GMS API at some point
             await axios.get(process.env.GMSAPI_URL + "/gymsync.php?" + params);
-            return true // improve error handling here
+            return true
         } catch (error) {
             logger.error(error) 
         }
@@ -113,9 +118,14 @@ class GmsAPI {
                         throw "Person_Number not found in response data."
                     } 
                 }
+            } else if (people === null) {
+                logger.info("No edited users on GMS")
+            } else {
+                // something was wrong with the response
+                throw response
             }
 
-            return person
+            return person ? person : false
         } catch (error) {
             logger.error(error) 
         }
