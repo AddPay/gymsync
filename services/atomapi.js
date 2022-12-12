@@ -1,5 +1,4 @@
 const axios = require('../services/http')
-const config = require('../dbConfig.js')
 const cnx = require('mssql/msnodesqlv8')
 const ip = require('ip');
 require('dotenv').config()
@@ -59,12 +58,11 @@ class AtomAPI {
         try {
             const response = await axios.get(process.env.ATOMAPI_URL + "/Persons/" + personNumber);
             const person = response.data
-            if (person.Person_Number === personNumber) {
+            if (person.Person_Number == personNumber) {
                 return person
             }
         } catch (error) {
             logger.error(error)
-            // not sure
         }
         return false
     }
@@ -119,7 +117,7 @@ class AtomAPI {
      */
     static async personExists(personNumber) {
         const person = await AtomAPI.getPerson(personNumber)
-        return person ? person.Person_Number === personNumber : false
+        return person ? true : false
     }
 
     /**
