@@ -10,6 +10,6 @@ module.exports = {
     script : "./synctables/readers.js"
   },{
     name   : "enroll",
-    script : "./enroll.js"
+    script : "./enroll/enroll.js"
   }]
 }

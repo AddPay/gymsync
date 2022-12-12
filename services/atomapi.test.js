@@ -57,3 +57,51 @@ test("Get readers should return an array", () => {
 test("Get persons should return an array", () => {
     return AtomAPI.getUnsyncedPersons().then(data => expect(data.length).toBeGreaterThanOrEqual(0))
 })
+
+test("Persons table should update", async () => {
+    const persons = [{
+        "PersonID": 1
+    }]
+    
+    await AtomAPI.setPersonsSynced(persons, false)
+
+    const unsynced = await AtomAPI.getUnsyncedPersons()
+    
+    const index = unsynced.map(e => e.PersonID).indexOf(1);
+
+    expect(index).toBeGreaterThanOrEqual(0)
+
+    if (index !== -1) {
+        await AtomAPI.setPersonsSynced(persons)
+    }
+
+    const unsynced2 = await AtomAPI.getUnsyncedPersons()
+    
+    const index2 = unsynced2.map(e => e.PersonID).indexOf(1);
+
+    expect(index2).toEqual(-1)
+})
+
+test("Transactions table should update", async () => {
+    const transactions = [{
+        "TransactionID": 2
+    }]
+    
+    await AtomAPI.setTransactionsSynced(transactions, false)
+
+    const unsynced = await AtomAPI.getUnsyncedTransactions()
+    
+    const index = unsynced.map(e => e.TransactionID).indexOf(2);
+
+    expect(index).toBeGreaterThanOrEqual(0)
+
+    if (index !== -1) {
+        await AtomAPI.setTransactionsSynced(transactions)
+    }
+
+    const unsynced2 = await AtomAPI.getUnsyncedTransactions()
+    
+    const index2 = unsynced2.map(e => e.TransactionID).indexOf(1);
+
+    expect(index2).toEqual(-1)
+})

@@ -131,7 +131,20 @@ class AtomAPI {
         try {
             const limit = process.env.TRANSACTIONS_TABLE_LIMIT > 0 ? "TOP " + process.env.TRANSACTIONS_TABLE_LIMIT : ""
             const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-            const result = await sql.query(`SELECT ${limit} * FROM Transactions WHERE tExtProcessed <> 1`)
+            const result = await sql.query(`SELECT ${limit} [TransactionID]
+                ,[tDateTime]
+                ,[PersonID]
+                ,[ReaderID]
+                ,[tDirection]
+                ,[tReaderDescription]
+                ,[tManual]
+                ,[tDeleted]
+                ,[tTAProcessed]
+                ,[TimesheetDayID]
+                ,[tExtProcessed]
+                ,[tLogical]
+                ,[tTemperature]
+                ,[tAbnormalTemp] FROM Transactions WHERE tExtProcessed <> 1`)
             return result.recordset
         } catch (error) {
             logger.error(error)
@@ -147,13 +160,15 @@ class AtomAPI {
      * 
      * @returns {boolean}
      */
-    static async setTransactionsSynced(transactions) {
+    static async setTransactionsSynced(transactions, synced = true) {
         const TransactionIDs = AtomAPI.getColumnValuesString(transactions, 'TransactionID')
 
         try {
-            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-            const result1 = await sql.query(`UPDATE Transactions SET tExtProcessed = 1 WHERE TransactionID IN(${TransactionIDs})`)
-            logger.info(result1)
+            if (TransactionIDs != "''") {
+                const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+                const tExtProcessed = synced ? 1 : 0
+                await sql.query(`UPDATE Transactions SET tExtProcessed = ${tExtProcessed} WHERE TransactionID IN(${TransactionIDs})`)
+            }
             return true
         } catch (error) {
             logger.error(error)
@@ -169,7 +184,29 @@ class AtomAPI {
     static async getReaders() {
         try {
             const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-            const result = await sql.query(`select * from Readers`)
+            const result = await sql.query(`select [ReaderID]
+                ,[rDescription]
+                ,[rIPAddress]
+                ,[ReaderBrandID]
+                ,[rType]
+                ,[rFirmwareVersion]
+                ,[rNumUsers]
+                ,[rNumDBs]
+                ,[rFunction]
+                ,[ReaderFunctionID]
+                ,[SiteID]
+                ,[rRelayEnabled]
+                ,[rRelayTime]
+                ,[rTimeMaskEnabled]
+                ,[rEnrolment]
+                ,[rEmergency]
+                ,[rPresence]
+                ,[rLastOnlineDateTime]
+                ,[rEmergencyState]
+                ,[rTPFixedAddress]
+                ,[rTPLogicalAddress]
+                ,[rSerialNumber]
+                ,[rVerificationID] from Readers`)
             return result.recordset
         } catch (error) {
             logger.error(error)
@@ -201,12 +238,15 @@ class AtomAPI {
      * 
      * @returns {boolean}
      */
-    static async setPersonsSynced(persons) {
+    static async setPersonsSynced(persons, synced = true) {
         try {
             const personIDs = AtomAPI.getColumnValuesString(persons, 'PersonID')
-            // tell ATOM we have successfully updated GMS
-            const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
-            await sql.query(`UPDATE Persons SET p3rdPartyUID = 1 WHERE PersonID IN(${personIDs})`)
+            if (personIDs !== "''") {
+                // tell ATOM we have successfully updated GMS
+                const p3rdPartyUID = synced ? 1 : 0
+                const sql = await cnx.connect(process.env.MSSQL_CONNECTION_STRING)
+                await sql.query(`UPDATE Persons SET p3rdPartyUID = ${p3rdPartyUID} WHERE PersonID IN(${personIDs})`)
+            }
             return true
         } catch (error) {
             logger.error(error)

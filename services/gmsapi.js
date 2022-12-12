@@ -1,5 +1,6 @@
 const axios = require('../services/http')
 require('dotenv').config()
+const qs = require('qs');
 const { Logger } = require('../services/logger')
 const logger = new Logger("ATOMAPI")
 
@@ -75,17 +76,23 @@ class GmsAPI {
      */
     static async syncUp(data, idColumn) {
         try {
-            const json = JSON.stringify(data)
-            const body = {
-                da: json,
+            // const json = JSON.stringify(data)
+            // const body = {
+            //     da: json,
+            //     wc: idColumn,
+            //     sa: 'up',
+            // }
+            // const params = new URLSearchParams(body).toString();
+            const params = qs.stringify({
+                da: data,
                 wc: idColumn,
                 sa: 'up',
-            }
-            const params = new URLSearchParams(body).toString();
+            })
 
             // the script responds with ok - even if the column is incorrect
             // need to fix that on GMS API at some point
-            await axios.get(process.env.GMSAPI_URL + "/gymsync.php?" + params);
+            // await axios.get(process.env.GMSAPI_URL + "/gymsync.php?" + params);
+            const response = await axios.post(process.env.GMSAPI_URL + "/gymsync.php", params);
             return true
         } catch (error) {
             logger.error(error) 

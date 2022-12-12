@@ -35,7 +35,7 @@ async function syncTransactions() {
         logger.error(error)
     }
     
-    setTimeout(async () => {await syncTransactions(sync)}, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
+    setTimeout(async () => {await syncTransactions()}, process.env.DEFAULT_SYNC_INTERVAL_MILLISECONDS)
 }
 
 syncTransactions()
